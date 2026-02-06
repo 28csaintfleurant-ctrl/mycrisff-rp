@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mycrisff - Navegador Hacker Abas</title>
+    <style>
+        :root {
+            --hacker-color: #39FF14;
+            --bg-color: #000;
+        }
+
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg-color); overflow: hidden; font-family: 'Courier New', monospace; }
+        
+        /* LINHAS HACKER */
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none; }
+
+        /* LOGIN */
+        #login-screen {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 1000; background: rgba(0,0,0,0.9); padding: 30px; 
+            border: 2px solid var(--hacker-color); border-radius: 15px; text-align: center; 
+            width: 280px; box-shadow: 0 0 30px var(--hacker-color);
+        }
+        .pass-input { width: 85%; padding: 12px; font-size: 22px; text-align: center; background: #000; border: 1px solid var(--hacker-color); color: var(--hacker-color); border-radius: 8px; margin-bottom: 15px; outline: none; }
+        .btn-enter { background: var(--hacker-color); color: #000; border: none; padding: 12px; font-weight: bold; width: 100%; border-radius: 8px; cursor: pointer; }
+
+        /* UI DO NAVEGADOR */
+        #browser-ui { display: none; position: relative; z-index: 100; height: 100vh; flex-direction: column; }
+
+        /* BARRA DE CIMA (MENU + ABAS) */
+        .tabs-bar { display: flex; align-items: center; background: #000; border-bottom: 2px solid var(--hacker-color); padding: 5px 10px; gap: 10px; overflow-x: auto; }
+        .menu-btn { color: var(--hacker-color); font-size: 30px; cursor: pointer; }
+        .add-tab-btn { color: var(--hacker-color); font-size: 30px; cursor: pointer; font-weight: bold; padding: 0 10px; border: 1px solid var(--hacker-color); border-radius: 5px; }
+
+        .tab { 
+            background: #222; color: var(--hacker-color); padding: 8px 15px; border-radius: 5px; 
+            font-size: 12px; display: flex; align-items: center; cursor: pointer; border: 1px solid #444; min-width: 80px; justify-content: space-between;
+        }
+        .tab.active { background: var(--hacker-color); color: #000; font-weight: bold; }
+        .close-tab { color: red; margin-left: 8px; font-weight: bold; cursor: pointer; }
+
+        /* MENU DE CONFIGURAÇÃO */
+        #config-menu {
+            display: none; position: absolute; top: 60px; left: 10px; 
+            background: rgba(10,10,10,0.95); border: 2px solid var(--hacker-color); 
+            padding: 15px; border-radius: 10px; z-index: 500;
+        }
+        .color-opt { display: block; width: 100%; padding: 8px; margin-bottom: 5px; border: none; cursor: pointer; font-weight: bold; border-radius: 5px; }
+
+        /* BARRA DE ENDEREÇO */
+        .address-bar { padding: 10px; background: rgba(0,0,0,0.8); display: flex; gap: 10px; }
+        #urlInput { flex: 1; padding: 10px; background: #000; border: 1px solid var(--hacker-color); color: var(--hacker-color); border-radius: 20px; outline: none; }
+        .go-btn { background: var(--hacker-color); color: #000; border: none; border-radius: 20px; padding: 0 20px; font-weight: bold; cursor: pointer; }
+
+        /* AREA DO CONTEÚDO */
+        #viewports { flex: 1; position: relative; }
+        .viewport { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; }
+        .viewport.active { display: flex; }
+        
+        .clock { font-size: 90px; font-weight: bold; color: var(--hacker-color); text-shadow: 0 0 20px var(--hacker-color); text-align: center; }
+        iframe { width: 100%; height: 100%; border: none; background: #fff; display: none; }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix-bg"></canvas>
+
+    <div id="login-screen">
+        <h2 style="color: var(--hacker-color);">MYCRISFF OS</h2>
+        <input type="password" id="pin-field" class="pass-input" placeholder="SENHA">
+        <button class="btn-enter" onclick="unlock()">ENTRAR</button>
+    </div>
+
+    <div id="browser-ui">
+        <div class="tabs-bar">
+            <div class="menu-btn" onclick="toggleMenu()">☰</div>
+            <div id="tabs-container" style="display:flex; gap:5px;"></div>
+            <div class="add-tab-btn" onclick="createNewTab()">+</div>
+        </div>
+
+        <div id="config-menu">
+            <button class="color-opt" style="background: #39FF14;" onclick="changeColor('#39FF14')">VERDE</button>
+            <button class="color-opt" style="background: #00FFFF;" onclick="changeColor('#00FFFF')">AZUL</button>
+            <button class="color-opt" style="background: #FF00FF;" onclick="changeColor('#FF00FF')">ROSA</button>
+            <button class="color-opt" style="background: #FFFFFF;" onclick="changeColor('#FFFFFF')">BRANCO</button>
+            <button onclick="toggleMenu()" style="width:100%; margin-top:5px; cursor:pointer">FECHAR</button>
+        </div>
+
+        <div class="address-bar">
+            <input type="text" id="urlInput" placeholder="Digite a URL ou pesquise...">
+            <button class="go-btn" onclick="loadUrl()">IR</button>
+        </div>
+
+        <div id="viewports"></div>
+    </div>
+
+    <script>
+        // MATRIX
+        const canvas = document.getElementById('matrix-bg');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const drops = Array(Math.floor(canvas.width / 18)).fill(1);
+        function drawMatrix() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--hacker-color');
+            ctx.font = "16px monospace";
+            drops.forEach((y, i) => {
+                ctx.fillText(Math.floor(Math.random()*2), i * 18, y * 18);
+                if (y * 18 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            });
+        }
+        setInterval(drawMatrix, 50);
+
+        // LOGIN SENHA 2018
+        function unlock() {
+            if(document.getElementById('pin-field').value === "2018") {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('browser-ui').style.display = 'flex';
+                createNewTab();
+            } else { alert("ACESSO NEGADO!"); }
+        }
+
+        // RELÓGIO
+        setInterval(() => {
+            const now = new Date();
+            const time = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0') + ":" + now.getSeconds().toString().padStart(2, '0');
+            document.querySelectorAll('.clock').forEach(c => c.innerText = time);
+        }, 1000);
+
+        // ABAS
+        let tabCount = 0; let activeTab = null;
+        function createNewTab() {
+            const id = tabCount++;
+            const t = document.createElement('div');
+            t.className = 'tab'; t.id = `t-${id}`;
+            t.innerHTML = `<span onclick="selectTab(${id})">Aba ${id+1}</span><span class="close-tab" onclick="closeTab(event, ${id})">x</span>`;
+            document.getElementById('tabs-container').appendChild(t);
+
+            const v = document.createElement('div');
+            v.className = 'viewport'; v.id = `v-${id}`;
+            v.innerHTML = `<div class="clock">00:00:00</div><iframe id="f-${id}"></iframe>`;
+            document.getElementById('viewports').appendChild(v);
+            selectTab(id);
+        }
+
+        function selectTab(id) {
+            activeTab = id;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.viewport').forEach(v => v.classList.remove('active'));
+            document.getElementById(`t-${id}`).classList.add('active');
+            document.getElementById(`v-${id}`).classList.add('active');
+        }
+
+        function closeTab(e, id) {
+            e.stopPropagation();
+            document.getElementById(`t-${id}`).remove();
+            document.getElementById(`v-${id}`).remove();
+        }
+
+        // CONFIG
+        function toggleMenu() {
+            const m = document.getElementById('config-menu');
+            m.style.display = m.style.display === 'block' ? 'none' : 'block';
+        }
+        function changeColor(c) {
+            document.documentElement.style.setProperty('--hacker-color', c);
+            if(c === '#FFFFFF') document.documentElement.style.setProperty('--bg-color', '#ccc');
+            else document.documentElement.style.setProperty('--bg-color', '#000');
+            toggleMenu();
+        }
+
+        function loadUrl() {
+            const val = document.getElementById('urlInput').value;
+            if(!val || activeTab === null) return;
+            const url = val.startsWith('http') ? val : 'https://www.google.com/search?igu=1&q=' + val;
+            const vp = document.getElementById(`v-${activeTab}`);
+            vp.querySelector('.clock').style.display = 'none';
+            const frame = document.getElementById(`f-${activeTab}`);
+            frame.style.display = 'block'; frame.src = url;
+        }
+    </script>
+</body>
+</html>
